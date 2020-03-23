@@ -16,8 +16,8 @@ wait = WebDriverWait(driver, 10)
 
 
 webpage =  'https://internshala.com/'
-username = "your user name"
-password = "your pass"
+username = "your username"
+password = "your password"
 
 path = "E:\Codes\Python\Web-Automate-Selenium\Internshala-Python-Users.xlsx"
 
@@ -65,9 +65,9 @@ course = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="trainings_co
 
 project = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="project_evaluation_menu_item"]/p'))).click()   #Evaluate Project
 
-scrollDownAllTheWay(driver)  #Scroll in order to load the whole table
-
 contest_user = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="project_evaluation"]/div/div[1]/label[1]')))  #Uncheck contest users
+
+scrollDownAllTheWay(driver)  #Scroll in order to load the whole table
 
 print(contest_user.is_selected())  #check if box already pressed
 
@@ -82,34 +82,25 @@ print(len(rows))   #total no. of students
 book = Workbook()   #create an excel sheet
 nonContestUsers = book.create_sheet("non_contest_users",0)  #create a sheet for non-contest users
 contestUsers = book.create_sheet("contest_users",1)  #create a sheet for contest users
+contestUsers.append(("Name", "Start date", "Submission date", "Download link"))
+nonContestUsers.append(("Name", "Start date", "Submission date", "Download link"))
+
+contestUsersNames = set()   #set to add only unique names in the sheet
+nonContestUsersNames = set()
 
 for row in rows[1:]:
-    name = row.find_element_by_xpath(".//td[1]").text
-    if len(name) > 2:
-        start_date = row.find_element_by_xpath(".//td[2]").text
-        submission_date = row.find_element_by_xpath(".//td[3]").text
-        download_link = row.find_element_by_xpath(".//td[4]//a").get_attribute("href")
-        
+    name = row.find_element_by_xpath(".//td[1]").text    # .//tr/td[1]    name
+    if len(name) > 2 and (name not in contestUsersNames and name not in nonContestUsersNames):
+        start_date = row.find_element_by_xpath(".//td[2]").text        # .//tr/td[2]    start date
+        submission_date = row.find_element_by_xpath(".//td[3]").text   # .//tr/td[3]    submission date
+        download_link = row.find_element_by_xpath(".//td[4]//a").get_attribute("href")  # .//tr/td[4]    download link
+                                                                                        # .//tr/td[5]    share feedback button
         if "\n" in name:
-            contestUsers.append((name, start_date, submission_date, download_link))
+            contestUsersNames.add(name.split("\n")[0])
+            contestUsers.append((name.split("\n")[0], start_date, submission_date, download_link))
         else:
+            nonContestUsersNames.add(name)
             nonContestUsers.append((name, start_date, submission_date, download_link))
 
 book.save(path)
 print("Done Saving")
-
-# .//tr/td[1]    name
-# .//tr/td[2]    start date
-# .//tr/td[3]    submission date
-# .//tr/td[4]    download link
-# .//tr/td[5]    share feedback button
-
-
-# download = table.find_elements_by_xpath(".//td//a")
-# for data in download:
-#     print(data.get_attribute("href"))
-
-# contest = table.find_elements_by_xpath(".//td//div")
-# for elem in contest:
-#     print(elem.text)
-
