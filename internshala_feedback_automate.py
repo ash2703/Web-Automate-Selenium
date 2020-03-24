@@ -8,16 +8,16 @@ from openpyxl import Workbook  #for working on excel sheets
 from time import sleep
 
 # Using Chrome to access web
-# options = webdriver.ChromeOptions()
-# options.add_argument("--start-maximized")
-# driver = webdriver.Chrome("D:\Softwares\chromedriver", chrome_options=options)   #path to chrome driver
-driver = webdriver.Chrome("D:\Softwares\chromedriver")
+options = webdriver.ChromeOptions()
+options.add_argument("--start-maximized")
+driver = webdriver.Chrome("D:\Softwares\chromedriver", chrome_options=options)   #path to chrome driver
+# driver = webdriver.Chrome("D:\Softwares\chromedriver")
 wait = WebDriverWait(driver, 10)
 
 
 webpage =  'https://internshala.com/'
-username = "your username"
-password = "your password"
+username = "your mail here"
+password = "your pass here"
 
 path = "E:\Codes\Python\Web-Automate-Selenium\Internshala-Python-Users.xlsx"
 
@@ -47,6 +47,71 @@ def scrollDownAllTheWay(driver):
         else:
             break
     return True
+def is_contestUser(name):
+    return "\n" in name
+
+
+def saveTableToExcel():
+    book = Workbook()   #create an excel sheet
+    nonContestUsers = book.create_sheet("non_contest_users",0)  #create a sheet for non-contest users
+    contestUsers = book.create_sheet("contest_users",1)  #create a sheet for contest users
+    contestUsers.append(("Name", "Start date", "Submission date", "Download link"))
+    nonContestUsers.append(("Name", "Start date", "Submission date", "Download link"))
+
+    contestUsersNames = set()   #set to add only unique names in the sheet
+    nonContestUsersNames = set()
+
+    for row in rows[1:]:
+        name = row.find_element_by_xpath(".//td[1]").text    # .//tr/td[1]    name
+        if len(name) > 2 and (name not in contestUsersNames and name not in nonContestUsersNames):
+            start_date = row.find_element_by_xpath(".//td[2]").text        # .//tr/td[2]    start date
+            submission_date = row.find_element_by_xpath(".//td[3]").text   # .//tr/td[3]    submission date
+            download_link = row.find_element_by_xpath(".//td[4]//a").get_attribute("href")  # .//tr/td[4]    download link
+                                                                                            # .//tr/td[5]    share feedback button
+            if "\n" in name:
+                contestUsersNames.add(name.split("\n")[0])
+                contestUsers.append((name.split("\n")[0], start_date, submission_date, download_link))
+            else:
+                nonContestUsersNames.add(name)
+                nonContestUsers.append((name, start_date, submission_date, download_link))
+
+    book.save(path)
+    print("Done Saving")
+
+def writeFeedback(row, name, score, feedback):
+    share_btn = row.click()    #open feedback form
+    email = driver.find_element_by_xpath('//*[@id="feedbackModal"]/div/div/div[1]/div/h4/input').get_attribute("value")
+    if name != email:
+        print("name mismatch ", name, " " ,email)
+        return -1
+    
+    score_btn = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="score"]'))).send_keys(score)    #type in the score
+    driver.switch_to.frame(driver.find_element_by_tag_name('iframe'))  #text is in an iframe so switch to it
+
+    edit_feed = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="tinymce"]/p')))  #<p> field for text input
+    driver.execute_script("arguments[0].textContent = arguments[1];", edit_feed, feedback)   #send_keys can be used for input boxes only
+    if edit_feed.text != feedback:
+        print("text mismatch")
+        driver.switch_to.parent_frame()
+        close = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="feedbackModal"]/div/div/div[1]/button'))).click()   #close button
+        return -1
+
+    driver.switch_to.parent_frame()
+    close = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="feedbackModal"]/div/div/div[1]/button'))).click()   #close button
+    print("Feedback of {} posted succesfully".format(name.split("@")[0]))
+    return 1
+
+def readRow(row):
+    pass
+
+def readExcel(name):
+    pass
+
+def readTable():
+    pass
+
+
+
 
 # Open the website
 driver.get(webpage)
@@ -79,28 +144,19 @@ table = driver.find_element_by_xpath('//*[@id="project_evaluation"]/div/div[2]/d
 rows = table.find_elements_by_xpath(".//tr")   #fetch all rows from the table
 print(len(rows))   #total no. of students
 
-book = Workbook()   #create an excel sheet
-nonContestUsers = book.create_sheet("non_contest_users",0)  #create a sheet for non-contest users
-contestUsers = book.create_sheet("contest_users",1)  #create a sheet for contest users
-contestUsers.append(("Name", "Start date", "Submission date", "Download link"))
-nonContestUsers.append(("Name", "Start date", "Submission date", "Download link"))
-
-contestUsersNames = set()   #set to add only unique names in the sheet
-nonContestUsersNames = set()
-
+# saveTableToExcel()
+names = set()
+failed = 0 
 for row in rows[1:]:
-    name = row.find_element_by_xpath(".//td[1]").text    # .//tr/td[1]    name
-    if len(name) > 2 and (name not in contestUsersNames and name not in nonContestUsersNames):
-        start_date = row.find_element_by_xpath(".//td[2]").text        # .//tr/td[2]    start date
-        submission_date = row.find_element_by_xpath(".//td[3]").text   # .//tr/td[3]    submission date
-        download_link = row.find_element_by_xpath(".//td[4]//a").get_attribute("href")  # .//tr/td[4]    download link
-                                                                                        # .//tr/td[5]    share feedback button
-        if "\n" in name:
-            contestUsersNames.add(name.split("\n")[0])
-            contestUsers.append((name.split("\n")[0], start_date, submission_date, download_link))
-        else:
-            nonContestUsersNames.add(name)
-            nonContestUsers.append((name, start_date, submission_date, download_link))
-
-book.save(path)
-print("Done Saving")
+    share_btn = WebDriverWait(row, 10).until(EC.element_to_be_clickable((By.XPATH,".//td[5]")))
+    name = row.find_element_by_xpath(".//td[1]").text
+    # print(name)
+    if (len(name) > 2) and (not is_contestUser(name)) and (name not in names):
+        names.add(name)
+        status = writeFeedback(share_btn, name, 50, "Testing")
+        if status == -1:
+            failed = failed + 1
+            print("Posting of {} failed".format(name))
+            # break
+print("Succesfully posted {} feedbacks, Failed feedbacks = {}".format(len(names) - failed, failed))
+### update = driver.find_element_by_xpath('//*[@id="feedbackModal"]/div/div/div[3]/button')  #final update button
