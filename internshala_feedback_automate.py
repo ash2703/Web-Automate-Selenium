@@ -19,16 +19,16 @@ logger.setLevel(logging.DEBUG)
 
 
 # Using Chrome to access web
-options = webdriver.ChromeOptions()
-options.add_argument("--start-maximized")
-driver = webdriver.Chrome("D:\Softwares\chromedriver", chrome_options=options)   #path to chrome driver
+# options = webdriver.ChromeOptions()
+# options.add_argument("--start-maximized")
+driver = webdriver.Chrome("D:\Softwares\chromedriver")   #path to chrome driver
 #driver = webdriver.Chrome("D:\Softwares\chromedriver")
 wait = WebDriverWait(driver, 10)
 
 
 webpage =  'https://internshala.com/'
-username = "your email"
-password = "your pass"
+username = "username"
+password = "password"
 
 path = "E:\Codes\Python\Web-Automate-Selenium\Internshala-Python-Users.xlsx"
 
@@ -103,6 +103,44 @@ def saveTableToExcel():
                 nonContestUsersNames.add(name)
                 nonContestUsers.append((name, start_date, submission_date, download_link))
 
+    book.save(path)
+    print("Done Saving")
+
+def saveTableToExistingExcel():
+    '''Read web table and fetch data from it and save to existing XL sheet'''
+    contestNames = readExcel(user = "contest_users")
+    nonContestNames = readExcel(user = "non_contest_users")
+
+    book = openpyxl.load_workbook(path)    #open the XL document
+    contestUsers = book.get_sheet_by_name("contest_users")   #fetch the desired sheet
+    nonContestUsers = book.get_sheet_by_name("non_contest_users")   #fetch the desired sheet
+
+
+
+    contestUsersNames = set()   #set to add only unique names in the sheet
+    nonContestUsersNames = set()
+
+    table = driver.find_element_by_xpath('//*[@id="project_evaluation"]/div/div[2]/div/div[1]/table')   #Read each row of table
+    rows = table.find_elements_by_xpath(".//tr")   #fetch all rows from the table
+
+    for row in rows[1:]:
+        try:
+            name = row.find_element_by_xpath(".//td[1]").text    # .//tr/td[1]    name
+            if len(name) > 2 and (name not in contestNames) and (name not in nonContestNames) and(name not in contestUsersNames and name not in nonContestUsersNames):
+                start_date = row.find_element_by_xpath(".//td[2]").text        # .//tr/td[2]    start date
+                submission_date = row.find_element_by_xpath(".//td[3]").text   # .//tr/td[3]    submission date
+                download_link = row.find_element_by_xpath(".//td[4]//a").get_attribute("href")  # .//tr/td[4]    download link
+                                                                                                # .//tr/td[5]    share feedback button
+                if is_contestUser(name):
+                    contestUsersNames.add(name.split("\n")[0])
+                    contestUsers.append((name.split("\n")[0], start_date, submission_date, download_link))
+                else:
+                    nonContestUsersNames.add(name)
+                    nonContestUsers.append((name, start_date, submission_date, download_link))
+        except Exception as e:
+            print(e)
+            logger.info(e) 
+            continue
     book.save(path)
     print("Done Saving")
 
@@ -209,7 +247,7 @@ def readRowsFromTable(table):
 driver.get(webpage)
 login(username, password)
 
-wait.until(EC.url_to_be("https://internshala.com/internships/matching-preferences"))   #same element was present on previous page so error was thrown
+wait.until(EC.url_to_be("https://internshala.com/internships"))   #same element was present on previous page so error was thrown
 menu = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@id='dropdown']/ul/li[2]/a"))).click()
 
 window_after = driver.window_handles[1]   #focus on newly opened window
@@ -231,11 +269,12 @@ scrollDownAllTheWay(driver)  #Scroll in order to load the whole table
 #     contest_user.click()  #internshala page is checked when false is returned
 
 # saveTableToExcel()   #Read data from web table and save it to excel sheet
+print("Appending data to excel sheet")
+saveTableToExistingExcel()
+# print("Reading Table")
 
-print("Reading Table")
+# table = driver.find_element_by_xpath('//*[@id="project_evaluation"]/div/div[2]/div/div[1]/table')   #Identify table element in the page
+# succesfull, failed = readRowsFromTable(table)
 
-table = driver.find_element_by_xpath('//*[@id="project_evaluation"]/div/div[2]/div/div[1]/table')   #Identify table element in the page
-succesfull, failed = readRowsFromTable(table)
-
-print("Succesfully posted {} feedbacks, Failed feedbacks = {}".format(succesfull, failed))
-logger.info("Succesfully posted {} feedbacks, Failed feedbacks = {}".format(succesfull, failed)) 
+# print("Succesfully posted {} feedbacks, Failed feedbacks = {}".format(succesfull, failed))
+# logger.info("Succesfully posted {} feedbacks, Failed feedbacks = {}".format(succesfull, failed)) 
